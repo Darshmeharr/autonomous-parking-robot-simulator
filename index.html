@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Autonomous Parking Robot</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <style>
+    body {
+      background: linear-gradient(to right, #020617, #0f172a);
+      font-family: Arial, sans-serif;
+      overflow-x: hidden;
+    }
+
+    .parking-lot {
+      position: relative;
+      width: 900px;
+      height: 550px;
+      background: #1e293b;
+      border-radius: 30px;
+      overflow: hidden;
+      border: 6px solid #334155;
+    }
+
+    .road-line {
+      position: absolute;
+      width: 100%;
+      height: 6px;
+      background: repeating-linear-gradient(
+        to right,
+        white,
+        white 40px,
+        transparent 40px,
+        transparent 80px
+      );
+      top: 50%;
+      transform: translateY(-50%);
+      opacity: 0.5;
+    }
+
+    .parking-space {
+      position: absolute;
+      width: 120px;
+      height: 180px;
+      border: 4px solid white;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: bold;
+      font-size: 18px;
+    }
+
+    .occupied {
+      background: rgba(239, 68, 68, 0.3);
+    }
+
+    .available {
+      background: rgba(34, 197, 94, 0.25);
+      box-shadow: 0 0 25px rgba(34, 197, 94, 0.4);
+    }
+
+    .robot-car {
+      position: absolute;
+      width: 90px;
+      height: 55px;
+      background: linear-gradient(to right, #3b82f6, #2563eb);
+      border-radius: 18px;
+      transition: all 0.12s linear;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 28px;
+      box-shadow: 0 0 20px rgba(59, 130, 246, 0.6);
+      z-index: 20;
+    }
+
+    .sensor {
+      position: absolute;
+      width: 140px;
+      height: 140px;
+      border-radius: 50%;
+      border: 2px dashed rgba(59,130,246,0.4);
+      transform: translate(-25%, -30%);
+      z-index: 1;
+    }
+
+    .panel {
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid rgba(148, 163, 184, 0.2);
+    }
+  </style>
+</head>
+<body class="min-h-screen text-white flex flex-col items-center justify-center p-6">
+
+  <div class="text-center mb-8">
+    <h1 class="text-5xl font-bold mb-3">Autonomous Parking Robot</h1>
+    <p class="text-slate-300 text-lg">
+      AI Powered Self Parking Vehicle Simulation
+    </p>
+  </div>
+
+  <div class="parking-lot mb-8" id="parkingLot">
+    <div class="road-line"></div>
+
+    <!-- Parking Spaces -->
+    <div class="parking-space occupied" style="top: 30px; left: 60px;">Occupied</div>
+    <div class="parking-space occupied" style="top: 30px; left: 230px;">Occupied</div>
+    <div class="parking-space available" id="targetSpot" style="top: 30px; left: 400px;">Target</div>
+    <div class="parking-space occupied" style="top: 30px; left: 570px;">Occupied</div>
+
+    <div class="parking-space occupied" style="bottom: 30px; left: 60px;">Occupied</div>
+    <div class="parking-space occupied" style="bottom: 30px; left: 230px;">Occupied</div>
+    <div class="parking-space occupied" style="bottom: 30px; left: 400px;">Occupied</div>
+    <div class="parking-space occupied" style="bottom: 30px; left: 570px;">Occupied</div>
+
+    <!-- Sensor -->
+    <div class="sensor" id="sensor"></div>
+
+    <!-- Robot Car -->
+    <div class="robot-car" id="robotCar">
+      🚗
+    </div>
+  </div>
+
+  <div class="grid md:grid-cols-3 gap-5 w-full max-w-6xl">
+
+    <div class="panel p-6 rounded-3xl shadow-2xl">
+      <h2 class="text-2xl font-bold mb-4">System Status</h2>
+
+      <div class="space-y-3 text-slate-300">
+        <p id="status">Waiting for parking command...</p>
+        <p id="position">Position: X:0 Y:0</p>
+        <p id="speed">Speed: 0 km/h</p>
+      </div>
+    </div>
+
+    <div class="panel p-6 rounded-3xl shadow-2xl">
+      <h2 class="text-2xl font-bold mb-4">AI Features</h2>
+
+      <ul class="space-y-2 text-slate-300">
+        <li>✔ Obstacle Detection</li>
+        <li>✔ Autonomous Navigation</li>
+        <li>✔ Smart Parking Logic</li>
+        <li>✔ Sensor Visualization</li>
+        <li>✔ AI Route Planning</li>
+      </ul>
+    </div>
+
+    <div class="panel p-6 rounded-3xl shadow-2xl">
+      <h2 class="text-2xl font-bold mb-4">Controls</h2>
+
+      <div class="flex flex-col gap-4">
+        <button
+          onclick="startParking()"
+          class="bg-blue-500 hover:bg-blue-600 py-3 rounded-2xl font-semibold transition"
+        >
+          Start Autonomous Parking
+        </button>
+
+        <button
+          onclick="resetSimulation()"
+          class="bg-red-500 hover:bg-red-600 py-3 rounded-2xl font-semibold transition"
+        >
+          Reset Simulation
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const car = document.getElementById('robotCar');
+    const sensor = document.getElementById('sensor');
+
+    const statusText = document.getElementById('status');
+    const positionText = document.getElementById('position');
+    const speedText = document.getElementById('speed');
+
+    let x = 60;
+    let y = 250;
+
+    car.style.left = x + 'px';
+    car.style.top = y + 'px';
+
+    sensor.style.left = x + 'px';
+    sensor.style.top = y + 'px';
+
+    function updateUI(speed) {
+      positionText.innerText = `Position: X:${Math.floor(x)} Y:${Math.floor(y)}`;
+      speedText.innerText = `Speed: ${speed} km/h`;
+
+      sensor.style.left = x + 'px';
+      sensor.style.top = y + 'px';
+    }
+
+    async function moveCar(targetX, targetY) {
+      return new Promise(resolve => {
+        const interval = setInterval(() => {
+          const dx = targetX - x;
+          const dy = targetY - y;
+
+          const distance = Math.sqrt(dx * dx + dy * dy);
+
+          if (distance < 3) {
+            clearInterval(interval);
+            resolve();
+            return;
+          }
+
+          x += dx * 0.04;
+          y += dy * 0.04;
+
+          car.style.left = x + 'px';
+          car.style.top = y + 'px';
+
+          updateUI(12);
+        }, 16);
+      });
+    }
+
+    async function startParking() {
+      statusText.innerText = 'Scanning parking spaces using AI vision...';
+
+      await delay(1200);
+
+      statusText.innerText = 'Available parking spot detected';
+
+      await delay(1200);
+
+      statusText.innerText = 'Calculating optimal parking path...';
+
+      await delay(1200);
+
+      statusText.innerText = 'Autonomous parking initiated';
+
+      // Move forward
+      await moveCar(280, 250);
+
+      // Turn upward toward parking slot
+      await moveCar(420, 120);
+
+      statusText.innerText = 'Vehicle parked successfully';
+
+      updateUI(0);
+
+      car.style.transform = 'rotate(-90deg)';
+
+      alert('Autonomous Parking Completed Successfully!');
+    }
+
+    function delay(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    function resetSimulation() {
+      x = 60;
+      y = 250;
+
+      car.style.left = x + 'px';
+      car.style.top = y + 'px';
+      car.style.transform = 'rotate(0deg)';
+
+      sensor.style.left = x + 'px';
+      sensor.style.top = y + 'px';
+
+      statusText.innerText = 'Waiting for parking command...';
+
+      updateUI(0);
+    }
+  </script>
+</body>
+</html>
